@@ -1,9 +1,9 @@
 resource "aws_lb" "main" {
   name               = "${var.project_name}-gwlb"
   load_balancer_type = "gateway"
-  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+  subnets            = [aws_subnet.public_a.id,aws_subnet.public_b.id]
   enable_deletion_protection = false
-
+  enable_cross_zone_load_balancing = true
   tags = {
     Name = "${var.project_name}-gwlb"
   }

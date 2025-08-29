@@ -6,9 +6,14 @@ resource "aws_security_group" "nat_appliance" {
     protocol    = "-1"
     from_port   = 0
     to_port     = 0
-    cidr_blocks = [aws_vpc.main.cidr_block]
+    cidr_blocks = ["0.0.0.0/0"]
   }
-
+ingress {
+    protocol    = "udp"
+    from_port   = 6081
+    to_port     = 6081
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   ingress {
     protocol    = "tcp"
     from_port   = 22
@@ -77,20 +82,13 @@ resource "aws_launch_template" "nat_appliance" {
       Name = "${var.project_name}-nat-appliance"
     }
   }
-  user_data = base64encode(<<-EOF
+  user_data =  base64encode(<<-EOF
   #!/bin/bash
   set -e -x
-
-  # --- 1. Install Prerequisites ---
-  # Update the system and install AWS CLI for API calls and iptables-services to save firewall rules.
-  # ------------------------------------------------------------------------------------------------
+  
   yum update -y
   yum install -y awscli iptables-services
 
-  # --- 2. Disable Source/Destination Check ---
-  # This allows the instance to forward traffic that is not explicitly destined for it.
-  # It's a mandatory step for any NAT or router instance.
-  # ------------------------------------------------------------------------------------------------
   INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
   REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
   aws ec2 modify-instance-attribute \
@@ -98,41 +96,24 @@ resource "aws_launch_template" "nat_appliance" {
     --no-source-dest-check \
     --region $REGION
 
-  # --- 3. Enable IP Forwarding ---
-  # This tells the Linux kernel to allow packet forwarding between network interfaces.
-  # ------------------------------------------------------------------------------------------------
   echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
   sysctl -p
 
-  # --- 4. Configure GENEVE Interface for Gateway Load Balancer ---
-  # THIS IS THE MOST IMPORTANT STEP FOR GWLB INTEGRATION.
-  # It creates a virtual network interface to receive and decapsulate GENEVE traffic from the GWLB.
-  # ------------------------------------------------------------------------------------------------
-  # Load the required kernel module for GENEVE protocol.
   modprobe geneve
-
-  # Create a new virtual interface named 'geneve0'.
-  # It listens on UDP port 6081 (matching the Target Group) from any source IP (remote 0.0.0.0).
   ip link add geneve0 type geneve id 0 remote 0.0.0.0 dstport 6081
-
-  # Activate the new 'geneve0' interface.
   ip link set geneve0 up
 
-  # --- 5. Configure NAT (Masquerading) ---
-  # This rule will take the decapsulated traffic (coming from geneve0) and apply NAT
-  # as it exits the primary network interface towards the internet.
-  # ------------------------------------------------------------------------------------------------
   PRIMARY_INTERFACE=$(ip -o -4 route show to default | awk '{print $5}')
   iptables -t nat -A POSTROUTING -o $PRIMARY_INTERFACE -j MASQUERADE
+  iptables -A FORWARD -i geneve0 -j ACCEPT
+  iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
-  # --- 6. Persist iptables Rules ---
-  # This ensures that our NAT rule is reapplied automatically after a reboot.
-  # ------------------------------------------------------------------------------------------------
   service iptables save
   systemctl enable iptables
   systemctl start iptables
 EOF
   )
+
 }
 resource "aws_autoscaling_group" "nat_appliance" {
   name                = "${var.project_name}-nat-asg"

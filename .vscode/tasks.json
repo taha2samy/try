@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Terraform Command",
+            "type": "shell",
+            "command": "terraform ${input:terraformAction}",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "terraformAction",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "echo -e \"init|Initialize Terraform|Run 'terraform init'\\napply -auto-approve|Apply Terraform (auto-approve)|Run 'terraform apply -auto-approve'\\ndestroy -auto-approve|Destroy Terraform (auto-approve)|Run 'terraform destroy -auto-approve'\"",
+                "fieldSeparator": "|",
+                "description": "Select Terraform action"
+            }
+        }
+    ]
+}

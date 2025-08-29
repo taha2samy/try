@@ -61,57 +61,77 @@ resource "aws_subnet" "endpoint_a" {
     Name = "${var.project_name}-endpoint-subnet-a"
   }
 }
-resource "aws_route_table" "public_jumbox" {
-  vpc_id = aws_vpc.main.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-}
 
-resource "aws_route_table" "public" {
+resource "aws_route_table" "public_nat" {
   vpc_id = aws_vpc.main.id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
+
   route {
     cidr_block      = aws_subnet.private.cidr_block
     vpc_endpoint_id = aws_vpc_endpoint.main.id
   }
-  tags = { Name = "${var.project_name}-public-rt" }
+
+  tags = { Name = "${var.project_name}-public-nat-rt" }
 }
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
+
   route {
     cidr_block      = "0.0.0.0/0"
     vpc_endpoint_id = aws_vpc_endpoint.main.id
   }
+
   tags = { Name = "${var.project_name}-private-rt" }
 }
 
-resource "aws_route_table_association" "public_a" {
-  subnet_id      = aws_subnet.public_a.id
-  route_table_id = aws_route_table.public.id
+resource "aws_route_table" "endpoint" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = { Name = "${var.project_name}-endpoint-rt" }
 }
 
-resource "aws_route_table_association" "public_b" {
-  subnet_id      = aws_subnet.public_b.id
-  route_table_id = aws_route_table.public.id
-}
+resource "aws_route_table" "public_jumbox" {
+  vpc_id = aws_vpc.main.id
 
-resource "aws_route_table_association" "public_d" {
-  subnet_id      = aws_subnet.public_d.id
-  route_table_id = aws_route_table.public_jumbox.id
-}
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
 
-resource "aws_route_table_association" "endpoint_a" {
-  subnet_id      = aws_subnet.endpoint_a.id
-  route_table_id = aws_route_table.public.id
+  tags = { Name = "${var.project_name}-public-jumpbox-rt" }
 }
 
 resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private.id
   route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public_nat.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
+  route_table_id = aws_route_table.public_nat.id
+}
+
+resource "aws_route_table_association" "endpoint_a" {
+  subnet_id      = aws_subnet.endpoint_a.id
+  route_table_id = aws_route_table.endpoint.id
+}
+
+resource "aws_route_table_association" "public_d" {
+  subnet_id      = aws_subnet.public_d.id
+  route_table_id = aws_route_table.public_jumbox.id
 }
