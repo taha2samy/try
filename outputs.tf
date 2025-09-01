@@ -1,10 +1,10 @@
 resource "local_file" "jump_box_connection_command" {
-  filename = "scripts/connect_to_jumpbox.txt"
+  filename = "commands/connect_to_jumpbox.txt"
   content  = "ssh -i \"${aws_key_pair.ec2_key.key_name}.pem\" ec2-user@${aws_instance.jump_box.public_ip}"
 }
 
 resource "local_file" "workload_connection_command" {
-  filename = "scripts/connect_to_workload_via_tunnel.txt"
+  filename = "commands/connect_to_workload_via_tunnel.txt"
   content  = "ssh -i \"${aws_key_pair.ec2_key.key_name}.pem\" -o ProxyCommand=\"ssh -W %h:%p -i '${aws_key_pair.ec2_key.key_name}.pem' ec2-user@${aws_instance.jump_box.public_ip}\" ec2-user@${aws_instance.workload.private_ip}"
 }
 
